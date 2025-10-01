@@ -15,7 +15,7 @@ import { AuditService } from '../audit/audit.service';
 export class AuthService {
 
   constructor(
-    @InjectModel(Users.name) private userModel: Model<IUser>,
+    @InjectModel(Users.name, 'primary') private userModel: Model<IUser>,
     private readonly usersService: UsersService,
      private readonly jwtService: JwtService,
      private readonly auditService: AuditService,   

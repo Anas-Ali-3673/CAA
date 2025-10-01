@@ -10,7 +10,7 @@ import { signUpDto } from 'src/auth/dto/signUp.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(Users.name) private userModel: Model<IUser>) {}
+  constructor(@InjectModel(Users.name, 'primary') private userModel: Model<IUser>) {}
 
   async createUser(createUserDto:signUpDto ): Promise<Omit<IUser, "password">> {
     try {

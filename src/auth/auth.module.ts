@@ -16,7 +16,7 @@ import { AuditModule } from '../audit/audit.module';
        forwardRef(() => UsersModule),
         MongooseModule.forFeature([
             {name:Users.name,schema:UsersSchema},
-        ]),
+        ], 'primary'),
         JwtModule.registerAsync({
              imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

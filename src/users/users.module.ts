@@ -9,7 +9,7 @@ import { AuthModule } from "src/auth/auth.module";
     imports:[
         MongooseModule.forFeature([
             {name:Users.name,schema:UsersSchema}
-        ]),
+        ], 'primary'),
       forwardRef(() =>  AuthModule)
     ],
 
