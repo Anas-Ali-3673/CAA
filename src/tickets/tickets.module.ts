@@ -1,15 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TicketsService } from './tickets.service';
 import { TicketsController } from './tickets.controller';
 import { Ticket, TicketSchema } from './schema/ticket.schema';
 import { AuditModule } from '../audit/audit.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Ticket.name, schema: TicketSchema }], 'primary'),
     MongooseModule.forFeature([{ name: Ticket.name, schema: TicketSchema }], 'fallback'),
     AuditModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [TicketsController],
   providers: [TicketsService],
