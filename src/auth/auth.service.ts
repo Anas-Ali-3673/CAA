@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Users } from 'src/users/schema/users.schema';
 import { Model } from 'mongoose';
 import { signUpDto } from './dto/signUp.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -16,7 +17,8 @@ export class AuthService {
   constructor(
     @InjectModel(Users.name) private userModel: Model<IUser>,
     private readonly usersService: UsersService,
-     private readonly jwtService: JwtService,   
+     private readonly jwtService: JwtService,
+     private readonly auditService: AuditService,   
   ) {}
 
   async signUp(signUpDto: signUpDto): Promise<Omit<IUser, "password">> {
@@ -31,6 +33,7 @@ export class AuthService {
           );
         }
 
+    await this.auditService.log(user._id, 'user', 'SIGNUP', 'user', user._id, { email: signUpDto.email });
      return user;
   }
 
@@ -55,8 +58,11 @@ export class AuthService {
     if (!isMatch) {
       throw new Error('Invalid credentials');
     }
-    const payload = { name: user.name || user.email, _id: user._id };
+    const payload = { name: user.name || user.email, _id: user._id, role: user.role };
     const accessToken = await this.jwtService.signAsync(payload);
+    
+    await this.auditService.log(user._id, user.role, 'LOGIN', 'user', user._id, { email: signInDto.email });
+    
     return {
       ...user,
       accessToken,

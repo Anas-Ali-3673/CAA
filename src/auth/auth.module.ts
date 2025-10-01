@@ -8,6 +8,7 @@ import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { PassportModule } from '@nestjs/passport';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
     imports:[
@@ -25,6 +26,7 @@ import { PassportModule } from '@nestjs/passport';
       inject: [ConfigService],
         }),
         PassportModule,
+        forwardRef(() => AuditModule),
     ],
     controllers:[AuthController],
     providers:[AuthService,AuthGuard],
