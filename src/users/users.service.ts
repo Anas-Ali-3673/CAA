@@ -9,25 +9,56 @@ import { UpdateUserDto } from './dto/updateUser.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(Users.name, 'primary') private userModel: Model<IUser>) {}
+  constructor(
+    @InjectModel(Users.name, 'primary') private primaryUserModel: Model<IUser>,
+    @InjectModel(Users.name, 'fallback') private fallbackUserModel: Model<IUser>
+  ) {}
 
   async createUser(createUserDto:CreateUserDto ): Promise<Omit<IUser, "password">> {
     try {
       const email = createUserDto.email.toLowerCase();
-      const existingUser = await this.userModel.find({ email });
+      let existingUser;
+      try {
+        existingUser = await this.primaryUserModel.find({ email });
+      } catch (error) {
+        existingUser = await this.fallbackUserModel.find({ email });
+      }
+      
       if (existingUser.length) {
         throw new HttpException("User already exists", 400);
       }
 
-   
       const salt = await bcrypt.genSalt();
       const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
-      const user = await this.userModel.create({
-        ...createUserDto,
-        email,
-        password: hashedPassword
-      });
+      let user;
+      try {
+        user = await this.primaryUserModel.create({
+          ...createUserDto,
+          email,
+          password: hashedPassword
+        });
+        // Sync to fallback
+        try {
+          await this.fallbackUserModel.create({
+            _id: user._id,
+            ...createUserDto,
+            email,
+            password: hashedPassword,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+          });
+        } catch (fallbackError) {
+          console.warn('Failed to sync user to fallback:', fallbackError.message);
+        }
+      } catch (primaryError) {
+        console.warn('Primary database failed, creating user in fallback:', primaryError.message);
+        user = await this.fallbackUserModel.create({
+          ...createUserDto,
+          email,
+          password: hashedPassword
+        });
+      }
 
       const { password, ...userWithoutPassword } = user.toObject();
       return userWithoutPassword;
@@ -38,7 +69,12 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<Omit<IUser, "password">> {
     try {
-      const user = await this.userModel.findOne({ email }).exec();
+      let user;
+      try {
+        user = await this.primaryUserModel.findOne({ email }).exec();
+      } catch (error) {
+        user = await this.fallbackUserModel.findOne({ email }).exec();
+      }
       if (!user) {
         throw new HttpException('invalid credentials', 404);
       }
@@ -51,7 +87,12 @@ export class UsersService {
 
   async findByEmailWithPassword(email: string): Promise<IUser | null> {
     try {
-      const user = await this.userModel.findOne({ email }).select('+password').exec();
+      let user;
+      try {
+        user = await this.primaryUserModel.findOne({ email }).select('+password').exec();
+      } catch (error) {
+        user = await this.fallbackUserModel.findOne({ email }).select('+password').exec();
+      }
       if (!user) {
         throw new HttpException('invalid credentials', 404);
       }
@@ -63,7 +104,12 @@ export class UsersService {
 
   async findUserById(id: string): Promise<Omit<IUser, "password">> {
     try {
-      const user = await this.userModel.findById(id).exec();
+      let user;
+      try {
+        user = await this.primaryUserModel.findById(id).exec();
+      } catch (error) {
+        user = await this.fallbackUserModel.findById(id).exec();
+      }
       if (!user) {
         throw new HttpException('User not found', 404);
       }
@@ -78,7 +124,12 @@ export class UsersService {
   try {
     const filter = createdBy ? { createdBy } : {};
 
-    const users = await this.userModel.find(filter).select('-password').lean().exec();
+    let users;
+    try {
+      users = await this.primaryUserModel.find(filter).select('-password').lean().exec();
+    } catch (error) {
+      users = await this.fallbackUserModel.find(filter).select('-password').lean().exec();
+    }
 
     return users
   
@@ -90,7 +141,17 @@ export class UsersService {
 
 
   async updateUser(id: string, updateUserDto: UpdateUserDto): Promise<IUser> {
-    const updatedUser = await this.userModel.findByIdAndUpdate(id, updateUserDto, { new: true });
+    let updatedUser;
+    try {
+      updatedUser = await this.primaryUserModel.findByIdAndUpdate(id, updateUserDto, { new: true });
+      try {
+        await this.fallbackUserModel.findByIdAndUpdate(id, updateUserDto, { new: true });
+      } catch (fallbackError) {
+        console.warn('Failed to sync update to fallback:', fallbackError.message);
+      }
+    } catch (primaryError) {
+      updatedUser = await this.fallbackUserModel.findByIdAndUpdate(id, updateUserDto, { new: true });
+    }
     if (!updatedUser) {
       throw new HttpException('User not found', 404);
     }
@@ -99,9 +160,21 @@ export class UsersService {
 
   async update(email: string, updateData: Partial<Users>): Promise<IUser> {
     try {
-      const updatedUser = await this.userModel
-        .findOneAndUpdate({ email }, updateData, { new: true })
-        .exec();
+      let updatedUser;
+      try {
+        updatedUser = await this.primaryUserModel
+          .findOneAndUpdate({ email }, updateData, { new: true })
+          .exec();
+        try {
+          await this.fallbackUserModel.findOneAndUpdate({ email }, updateData, { new: true }).exec();
+        } catch (fallbackError) {
+          console.warn('Failed to sync update to fallback:', fallbackError.message);
+        }
+      } catch (primaryError) {
+        updatedUser = await this.fallbackUserModel
+          .findOneAndUpdate({ email }, updateData, { new: true })
+          .exec();
+      }
       if (!updatedUser) {
         throw new HttpException('User not found', 404);
       }
@@ -113,7 +186,17 @@ export class UsersService {
 
   async deleteUser(id: string): Promise<string> {
     try {
-      const result = await this.userModel.findByIdAndDelete(id).exec();
+      let result;
+      try {
+        result = await this.primaryUserModel.findByIdAndDelete(id).exec();
+        try {
+          await this.fallbackUserModel.findByIdAndDelete(id).exec();
+        } catch (fallbackError) {
+          console.warn('Failed to sync delete to fallback:', fallbackError.message);
+        }
+      } catch (primaryError) {
+        result = await this.fallbackUserModel.findByIdAndDelete(id).exec();
+      }
       if (!result) {
         throw new HttpException('User not found', 404);
       }
@@ -124,11 +207,34 @@ export class UsersService {
   }
 
   async createUserFromProfile(createUserDto:CreateUserDto): Promise<IUser> {
-    const existingUser = await this.userModel.findOne({ email: createUserDto.email }).exec();
+    let existingUser;
+    try {
+      existingUser = await this.primaryUserModel.findOne({ email: createUserDto.email }).exec();
+    } catch (error) {
+      existingUser = await this.fallbackUserModel.findOne({ email: createUserDto.email }).exec();
+    }
+    
     if (existingUser) {
       throw new HttpException('User already exists', 400);
     }
-    const newUser = await this.userModel.create(createUserDto);
-    return newUser.populate({path:'createdBy',select:'-password'});;
+    
+    let newUser;
+    try {
+      newUser = await this.primaryUserModel.create(createUserDto);
+      try {
+        await this.fallbackUserModel.create({
+          _id: newUser._id,
+          ...createUserDto,
+          createdAt: newUser.createdAt,
+          updatedAt: newUser.updatedAt
+        });
+      } catch (fallbackError) {
+        console.warn('Failed to sync user creation to fallback:', fallbackError.message);
+      }
+    } catch (primaryError) {
+      newUser = await this.fallbackUserModel.create(createUserDto);
+    }
+    
+    return newUser.populate({path:'createdBy',select:'-password'});
   }
   }

@@ -29,17 +29,32 @@ export class AuditService {
       timestamp: new Date(),
     };
 
-    try {
-      await this.primaryAuditModel.create(auditEntry);
-    } catch (error) {
-      await this.fallbackAuditModel.create(auditEntry);
-    }
+    // Try to write to both databases
+    const promises: Promise<any>[] = [];
+    
+    promises.push(
+      this.primaryAuditModel.create(auditEntry).catch(error => {
+        console.warn('Failed to write audit log to primary database:', error.message);
+        return null;
+      })
+    );
+    
+    promises.push(
+      this.fallbackAuditModel.create(auditEntry).catch(error => {
+        console.warn('Failed to write audit log to fallback database:', error.message);
+        return null;
+      })
+    );
+
+    // Wait for at least one to succeed
+    await Promise.allSettled(promises);
   }
 
   async getAuditLogs(): Promise<IAuditLog[]> {
     try {
       return await this.primaryAuditModel.find().populate('userId', 'name email').sort({ timestamp: -1 });
     } catch (error) {
+      console.warn('Primary database failed for audit logs, using fallback:', error.message);
       return await this.fallbackAuditModel.find().populate('userId', 'name email').sort({ timestamp: -1 });
     }
   }

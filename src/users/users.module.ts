@@ -10,6 +10,9 @@ import { AuthModule } from "src/auth/auth.module";
         MongooseModule.forFeature([
             {name:Users.name,schema:UsersSchema}
         ], 'primary'),
+        MongooseModule.forFeature([
+            {name:Users.name,schema:UsersSchema}
+        ], 'fallback'),
       forwardRef(() =>  AuthModule)
     ],
 
