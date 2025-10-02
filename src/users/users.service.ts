@@ -6,13 +6,12 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/createUser.dto';
 import { UpdateUserDto } from './dto/updateUser.dto';
-import { signUpDto } from 'src/auth/dto/signUp.dto';
 
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(Users.name, 'primary') private userModel: Model<IUser>) {}
 
-  async createUser(createUserDto:signUpDto ): Promise<Omit<IUser, "password">> {
+  async createUser(createUserDto:CreateUserDto ): Promise<Omit<IUser, "password">> {
     try {
       const email = createUserDto.email.toLowerCase();
       const existingUser = await this.userModel.find({ email });
@@ -25,6 +24,7 @@ export class UsersService {
       const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
       const user = await this.userModel.create({
+        ...createUserDto,
         email,
         password: hashedPassword
       });

@@ -4,6 +4,7 @@ import { IAuth } from './interfaces/auth.interfaces';
 import { signInDto } from './dto/signIn.dto';
 import { signUpDto } from './dto/signUp.dto';
 import { IUser } from 'src/users/interfaces/users.interface';
+import { CreateUserDto } from 'src/users/dto/createUser.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -11,7 +12,7 @@ export class AuthController {
   
   @Post('signup')
   async signUp(
-    @Body() signUpDto: signUpDto,
+    @Body() signUpDto: CreateUserDto,
   ): Promise<Omit<IUser, 'password'>>{
     return this.authService.signUp(signUpDto);
   }
