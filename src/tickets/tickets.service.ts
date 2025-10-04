@@ -156,7 +156,7 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (userRole !== 'admin' && ticket.createdBy.toString() !== userId) {
+    if (userRole !== 'Admin') {
       throw new ForbiddenException('Access denied');
     }
 
