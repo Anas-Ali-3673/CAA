@@ -16,6 +16,7 @@ export class TicketsController {
 
   @Get()
   findAll(@Request() req) {
+    console.log('Controller - req.user:', req.user);
     return this.ticketsService.findAll(req.user._id, req.user.role);
   }
 

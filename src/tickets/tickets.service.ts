@@ -78,12 +78,20 @@ export class TicketsService {
   }
 
   async findAll(userId: string, userRole: string): Promise<ITicket[]> {
-    const filter = userRole === 'admin' ? {} : { createdBy: userId };
+    const isAdmin = userRole?.toLowerCase() === 'admin';
+    const filter = isAdmin ? {} : { createdBy: userId };
+    console.log('findAll - userId:', userId, 'userRole:', userRole, 'isAdmin:', isAdmin, 'filter:', filter);
+    
+    // Check total tickets in database
+    const totalCount = await this.readFromDatabase(model => model.countDocuments({}));
+    console.log('Total tickets in database:', totalCount);
     
     await this.auditService.log(userId, userRole, 'READ_ALL', 'ticket');
-    return this.readFromDatabase(model => 
+    const tickets = await this.readFromDatabase(model => 
       model.find(filter).populate('createdBy assignedTo', 'name email')
     );
+    console.log('Found tickets with filter:', tickets.length);
+    return tickets;
   }
 
   async findOne(id: string, userId: string, userRole: string): Promise<ITicket> {
@@ -106,11 +114,13 @@ export class TicketsService {
   async update(id: string, updateTicketDto: UpdateTicketDto, userId: string, userRole: string): Promise<ITicket> {
     const ticket = await this.readFromDatabase(model => model.findById(id));
     
+    console.log('Update - userId:', userId, 'userRole:', userRole, 'ticketId:', id, 'ticket found:', !!ticket);
+    
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    if (userRole !== 'admin' && ticket.createdBy.toString() !== userId) {
+    if (userRole !== 'Admin' && ticket.createdBy.toString() !== userId) {
       throw new ForbiddenException('Access denied');
     }
 
