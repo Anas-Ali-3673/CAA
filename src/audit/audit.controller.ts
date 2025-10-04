@@ -13,7 +13,7 @@ export class AuditController {
 
   @Get('logs')
   async getAuditLogs(@Request() req) {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'Admin') {
       throw new ForbiddenException('Only admins can view audit logs');
     }
     return this.auditService.getAuditLogs();
@@ -21,7 +21,7 @@ export class AuditController {
 
   @Post('database/toggle')
   async togglePrimaryDatabase(@Request() req, @Body() body: { down: boolean }) {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'Admin') {
       throw new ForbiddenException('Only admins can toggle database');
     }
     this.databaseService.setPrimaryDown(body.down);
@@ -30,7 +30,7 @@ export class AuditController {
 
   @Get('database/status')
   async getDatabaseStatus(@Request() req) {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'Admin') {
       throw new ForbiddenException('Only admins can view database status');
     }
     return { primaryDown: this.databaseService.isPrimaryDown() };
